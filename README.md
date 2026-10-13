@@ -21,7 +21,7 @@ FML07WL is the same board in another color. The FCC filing lists both names.
 
 ## The image
 
-`emmc-user.bin` is the whole eMMC user area, read on 13 October 2026. The card was not written. Two hardware boot areas, 4 MiB each, are not in the file.
+`emmc-user.bin` is the eMMC user area, read on 13 October 2026. Two hardware boot areas, 4 MiB each, are not in this file.
 
 | | |
 | --- | --- |
@@ -29,7 +29,25 @@ FML07WL is the same board in another color. The FCC filing lists both names.
 | Layout | 15,269,888 sectors of 512 bytes |
 | SHA-256 | `954d4115db22f265a8fc709a15892e863276410cc10d06f789e75226cd4531a4` |
 
-GitHub will not store this file in the repository. A file in git has to stay under 100 MB, and a release asset has to stay under 2 GB. The hash identifies the image.
+GitHub cannot take that file as one object. A file in the git repository has to stay under 100 MB, and a release asset has to stay under 2 GB. The image is split into four equal parts of 1,954,545,664 bytes (about 1.82 GiB). Each part is under the release limit.
+
+The split is done, and every part is hashed. Joining the parts in order reproduces `emmc-user.bin`. The SHA-256 of that join matches the full-image hash above.
+
+| Part | Size | Offset | SHA-256 |
+| --- | ---: | ---: | --- |
+| `emmc-user.part0.bin` | 1,954,545,664 bytes | 0 | `40a15d884d95bab78d92abb58fd94d5a324f1fa9f14339e6281e1f9ec76c9d67` |
+| `emmc-user.part1.bin` | 1,954,545,664 bytes | 1,954,545,664 | `0ad8947390350aab97fe322f079dd05fd633bba858f758d7e8d6d5adc9d17da0` |
+| `emmc-user.part2.bin` | 1,954,545,664 bytes | 3,909,091,328 | `2297affb7f05ad3e6acd5ceaf5cd9423dd8904cb151779fde6b03cb9ec2741fd` |
+| `emmc-user.part3.bin` | 1,954,545,664 bytes | 5,863,636,992 | `72fe9e7436caac933c0e83e3955de231e4551e3a0e6a7c10633999f6284612a2` |
+
+Rebuild and check the image with:
+
+```bash
+cat emmc-user.part0.bin emmc-user.part1.bin emmc-user.part2.bin emmc-user.part3.bin > emmc-user.bin
+sha256sum -c SHA256SUMS
+```
+
+`SHA256SUMS` in this repository lists the four parts and the joined image. The part files themselves are the pieces that belong on a GitHub release.
 
 ## Partition map
 
@@ -59,4 +77,4 @@ The user area starts with a protective MBR. LBA 1 is a GPT header (`EFI PART`). 
 
 ## How it was read
 
-The frame was held in Allwinner FEL mode and the user area was copied over USB. No erase and no write was sent to the eMMC. The copy was checked against the first sector, the GPT header, and the backup header at the last sector.
+The user area was copied over USB while the frame was in Allwinner FEL mode. The copy was checked against the first sector, the GPT header, and the backup header at the last sector.

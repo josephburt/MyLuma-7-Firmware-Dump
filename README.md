@@ -21,24 +21,26 @@ FML07WL is the same board in another color. The FCC filing lists both names.
 
 ## The image
 
-`emmc-user.bin` is the eMMC user area, read on 13 October 2026. Two hardware boot areas, 4 MiB each, are not in this file.
+`emmc-user.bin` is the eMMC user area, read on 13 October 2026. Two hardware boot areas, 4 MiB each, are separate files. Both of those areas are all zeros.
 
 | | |
 | --- | --- |
 | Size | 7,818,182,656 bytes (7,456 MiB) |
 | Layout | 15,269,888 sectors of 512 bytes |
-| SHA-256 | `954d4115db22f265a8fc709a15892e863276410cc10d06f789e75226cd4531a4` |
+| SHA-256 | `5fda167b44c361b5400cf0ab10c50584bd77b47596dd8986c586f9f99532ed9b` |
 
-GitHub cannot take that file as one object. A file in the git repository has to stay under 100 MB, and a release asset has to stay under 2 GB. The image is split into four equal parts of 1,954,545,664 bytes (about 1.82 GiB). Each part is under the release limit.
+The first files on this release were not bit-exact. The reader left a 12-byte status record at byte 32,768 of every 64 KiB block: 119,296 blocks, 1,431,552 bytes. Those bytes were read from the card again and replaced. The other bytes in each block were already the same as the card. The first joined image hashed to `954d4115db22f265a8fc709a15892e863276410cc10d06f789e75226cd4531a4`.
 
-The four parts and the smaller captures from the same read are published on release [fml07sd-v1.0.14](https://github.com/josephburt/MyLuma-7-Firmware-Dump/releases/tag/fml07sd-v1.0.14). Joining the parts in order reproduces `emmc-user.bin`. The SHA-256 of that join matches the full-image hash above.
+GitHub cannot take the user area as one object. A file in the git repository has to stay under 100 MB, and a release asset has to stay under 2 GB. The image is split into four equal parts of 1,954,545,664 bytes (about 1.82 GiB). Each part is under the release limit.
+
+The four parts, the boot areas, and the smaller captures from the same read are published on release [fml07sd-v1.0.14](https://github.com/josephburt/MyLuma-7-Firmware-Dump/releases/tag/fml07sd-v1.0.14). Joining the parts in order reproduces `emmc-user.bin`. The SHA-256 of that join matches the full-image hash above.
 
 | Part | Size | Offset | SHA-256 |
 | --- | ---: | ---: | --- |
-| `emmc-user.part0.bin` | 1,954,545,664 bytes | 0 | `40a15d884d95bab78d92abb58fd94d5a324f1fa9f14339e6281e1f9ec76c9d67` |
-| `emmc-user.part1.bin` | 1,954,545,664 bytes | 1,954,545,664 | `0ad8947390350aab97fe322f079dd05fd633bba858f758d7e8d6d5adc9d17da0` |
-| `emmc-user.part2.bin` | 1,954,545,664 bytes | 3,909,091,328 | `2297affb7f05ad3e6acd5ceaf5cd9423dd8904cb151779fde6b03cb9ec2741fd` |
-| `emmc-user.part3.bin` | 1,954,545,664 bytes | 5,863,636,992 | `72fe9e7436caac933c0e83e3955de231e4551e3a0e6a7c10633999f6284612a2` |
+| `emmc-user.part0.bin` | 1,954,545,664 bytes | 0 | `d01b2bdd3b5916fb9ae725e7a0a0657716f5091130e82f3879f319b1e00ccb9d` |
+| `emmc-user.part1.bin` | 1,954,545,664 bytes | 1,954,545,664 | `55c8eb951d240d25de42cd33b9285651dd7aea732193c1c4c82f47e060c358d4` |
+| `emmc-user.part2.bin` | 1,954,545,664 bytes | 3,909,091,328 | `eca1e032f14a560dfe8ada90d4a3091a057ac2a2b300c1f5064ab9ebd6420766` |
+| `emmc-user.part3.bin` | 1,954,545,664 bytes | 5,863,636,992 | `3f17aabeef95b8ba331dae887f5a24151c63ce7443e3725675dc7e1eaa5215cf` |
 
 Rebuild and check the image with:
 
@@ -63,6 +65,8 @@ sha256sum -c SHA256SUMS
 | `emmc-sector1.bin` | Primary GPT header | [emmc-sector1.bin](https://github.com/josephburt/MyLuma-7-Firmware-Dump/releases/download/fml07sd-v1.0.14/emmc-sector1.bin) |
 | `gpt-entries.bin` | GPT entries from LBAs 2 through 6 | [gpt-entries.bin](https://github.com/josephburt/MyLuma-7-Firmware-Dump/releases/download/fml07sd-v1.0.14/gpt-entries.bin) |
 | `emmc-extcsd.bin` | 512-byte EXT_CSD | [emmc-extcsd.bin](https://github.com/josephburt/MyLuma-7-Firmware-Dump/releases/download/fml07sd-v1.0.14/emmc-extcsd.bin) |
+| `emmc-boot1.bin` | Hardware boot area 1, 4 MiB, all zeros | [emmc-boot1.bin](https://github.com/josephburt/MyLuma-7-Firmware-Dump/releases/download/fml07sd-v1.0.14/emmc-boot1.bin) |
+| `emmc-boot2.bin` | Hardware boot area 2, 4 MiB, all zeros | [emmc-boot2.bin](https://github.com/josephburt/MyLuma-7-Firmware-Dump/releases/download/fml07sd-v1.0.14/emmc-boot2.bin) |
 
 ## Partition map
 
@@ -92,4 +96,6 @@ The user area starts with a protective MBR. LBA 1 is a GPT header (`EFI PART`). 
 
 ## How it was read
 
-The user area was copied over USB while the frame was in Allwinner FEL mode. The copy was checked against the first sector, the GPT header, and the backup header at the last sector.
+The user area was copied over USB while the frame was in Allwinner FEL mode. The copy was checked against the first sector, the GPT header, and the backup header at the last sector. A 12-byte status value from that reader had replaced real bytes in the middle of every 64 KiB block of the saved image. Those bytes were read again, and the image on this release is the corrected file. The first sector still matched after that read.
+
+The two hardware boot areas were read separately. Each file is 4,194,304 bytes of zeros, and both have SHA-256 `bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8`. They are not part of `emmc-user.bin`.

@@ -31,7 +31,7 @@ FML07WL is the same board in another color. The FCC filing lists both names.
 
 GitHub cannot take that file as one object. A file in the git repository has to stay under 100 MB, and a release asset has to stay under 2 GB. The image is split into four equal parts of 1,954,545,664 bytes (about 1.82 GiB). Each part is under the release limit.
 
-The split is done, and every part is hashed. Joining the parts in order reproduces `emmc-user.bin`. The SHA-256 of that join matches the full-image hash above.
+The four parts and the smaller captures from the same read are published on release [fml07sd-v1.0.14](https://github.com/josephburt/MyLuma-7-Firmware-Dump/releases/tag/fml07sd-v1.0.14). Joining the parts in order reproduces `emmc-user.bin`. The SHA-256 of that join matches the full-image hash above.
 
 | Part | Size | Offset | SHA-256 |
 | --- | ---: | ---: | --- |
@@ -47,7 +47,22 @@ cat emmc-user.part0.bin emmc-user.part1.bin emmc-user.part2.bin emmc-user.part3.
 sha256sum -c SHA256SUMS
 ```
 
-`SHA256SUMS` in this repository lists the four parts and the joined image. The part files themselves are the pieces that belong on a GitHub release.
+`SHA256SUMS` lists the four parts and the joined image. The same file is in this repository and on the release.
+
+| File | What it is | Download |
+| --- | --- | --- |
+| `emmc-user.part0.bin` | Bytes 0 through 1,954,545,663 | [part 0](https://github.com/josephburt/MyLuma-7-Firmware-Dump/releases/download/fml07sd-v1.0.14/emmc-user.part0.bin) |
+| `emmc-user.part1.bin` | Offset 1,954,545,664 | [part 1](https://github.com/josephburt/MyLuma-7-Firmware-Dump/releases/download/fml07sd-v1.0.14/emmc-user.part1.bin) |
+| `emmc-user.part2.bin` | Offset 3,909,091,328 | [part 2](https://github.com/josephburt/MyLuma-7-Firmware-Dump/releases/download/fml07sd-v1.0.14/emmc-user.part2.bin) |
+| `emmc-user.part3.bin` | Offset 5,863,636,992 | [part 3](https://github.com/josephburt/MyLuma-7-Firmware-Dump/releases/download/fml07sd-v1.0.14/emmc-user.part3.bin) |
+| `SHA256SUMS` | Hashes for the parts and the joined image | [SHA256SUMS](https://github.com/josephburt/MyLuma-7-Firmware-Dump/releases/download/fml07sd-v1.0.14/SHA256SUMS) |
+| `bootrom.bin` | Boot ROM, 64 KiB from address 0 | [bootrom.bin](https://github.com/josephburt/MyLuma-7-Firmware-Dump/releases/download/fml07sd-v1.0.14/bootrom.bin) |
+| `bootrom-0x0000.bin` | First 32 KiB of that boot ROM | [bootrom-0x0000.bin](https://github.com/josephburt/MyLuma-7-Firmware-Dump/releases/download/fml07sd-v1.0.14/bootrom-0x0000.bin) |
+| `bootrom-0x8000.bin` | Second 32 KiB of that boot ROM | [bootrom-0x8000.bin](https://github.com/josephburt/MyLuma-7-Firmware-Dump/releases/download/fml07sd-v1.0.14/bootrom-0x8000.bin) |
+| `emmc-sector0.bin` | Protective MBR | [emmc-sector0.bin](https://github.com/josephburt/MyLuma-7-Firmware-Dump/releases/download/fml07sd-v1.0.14/emmc-sector0.bin) |
+| `emmc-sector1.bin` | Primary GPT header | [emmc-sector1.bin](https://github.com/josephburt/MyLuma-7-Firmware-Dump/releases/download/fml07sd-v1.0.14/emmc-sector1.bin) |
+| `gpt-entries.bin` | GPT entries from LBAs 2 through 6 | [gpt-entries.bin](https://github.com/josephburt/MyLuma-7-Firmware-Dump/releases/download/fml07sd-v1.0.14/gpt-entries.bin) |
+| `emmc-extcsd.bin` | 512-byte EXT_CSD | [emmc-extcsd.bin](https://github.com/josephburt/MyLuma-7-Firmware-Dump/releases/download/fml07sd-v1.0.14/emmc-extcsd.bin) |
 
 ## Partition map
 

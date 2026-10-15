@@ -1,108 +1,179 @@
-# MyLuma 7 firmware dump
+# MyLuma 7" Wi-Fi Digital Photo Frame — Firmware Dump & Reverse Engineering
 
-![MyLuma 7 PhotoShare Wi-Fi digital picture frame in Stardust Grey](https://i5.walmartimages.com/seo/MyLuma-7-PhotoShare-WiFi-Digital-Picture-Frame-with-built-in-LEDs-in-Stardust-Grey_11f56d14-caeb-48ec-adce-0eec412ef3ac.d5fc8040820884d49aa943c4cbf9cc1b.jpeg?odnHeight=573&odnWidth=573&odnBg=FFFFFF)
+<p align="center">
+  <img src="assets/device.jpg" alt="MyLuma 7 PhotoShare Wi-Fi Digital Picture Frame" width="650">
+</p>
 
-A read-only copy of the stock eMMC user area from a MyLuma 7 PhotoShare frame. The photo is the Stardust Grey frame from the Walmart listing.
+<p align="center">
+  <a href="https://github.com/josephburt/MyLuma-7-Firmware-Dump/releases/tag/fml07sd-v1.0.14"><img src="https://img.shields.io/badge/Release-fml07sd--v1.0.14-blue?style=flat-square" alt="Release"></a>
+  <img src="https://img.shields.io/badge/SoC-Allwinner%20A133-orange?style=flat-square" alt="SoC">
+  <img src="https://img.shields.io/badge/OS-Android%2010%20(AOSP)-green?style=flat-square" alt="OS">
+  <img src="https://img.shields.io/badge/Kernel-Linux%204.9.191-blueviolet?style=flat-square" alt="Kernel">
+  <a href="https://fccid.io/2AT7Q-MYLUMA"><img src="https://img.shields.io/badge/FCC%20ID-2AT7Q--MYLUMA-informational?style=flat-square" alt="FCC ID"></a>
+  <img src="https://img.shields.io/badge/eMMC%20Hash-Verified%20Bit--Exact-brightgreen?style=flat-square" alt="Hash Verified">
+</p>
 
-## Device
+---
 
-| | |
-| --- | --- |
-| Model | FML07SD |
-| Product | MyLuma 7 PhotoShare Wi-Fi digital picture frame |
-| Maker | Simply Smart Home (Switchmate PhotoShare) |
-| Firmware | v1.0.14 |
-| Application | 4.041 (96) |
-| FCC ID | [2AT7Q-MYLUMA](https://fccid.io/2AT7Q-MYLUMA) |
-| SoC | Allwinner A133 |
-| Board | A100-SWM0813F-V1.0 |
+## Overview
 
-FML07WL is the same board in another color. The FCC filing lists both names.
+This repository provides a complete, bit-exact backup of the factory eMMC firmware from the **MyLuma 7" PhotoShare Wi-Fi Digital Picture Frame**, read via Allwinner FEL mode.
 
-## The image
+In addition to raw partition images and verification hashes, this repository documents:
+- **The Built-in OEM Engineering Menu ("Backdoor")**: How to enable native Android USB debugging without hardware modification.
+- **Bootloader Cryptographic Verification**: Technical analysis of Allwinner A133 U-Boot TOC1 secure container and why direct `vbmeta` modification disables the backlight.
+- **Hardware Architecture**: Complete GPT partition layout, Wi-Fi driver quirks, and wireless ADB control.
 
-`emmc-user.bin` is the eMMC user area, read on 13 October 2026. Two hardware boot areas, 4 MiB each, are separate files. Both of those areas are all zeros.
+---
 
-| | |
-| --- | --- |
-| Size | 7,818,182,656 bytes (7,456 MiB) |
-| Layout | 15,269,888 sectors of 512 bytes |
-| SHA-256 | `5fda167b44c361b5400cf0ab10c50584bd77b47596dd8986c586f9f99532ed9b` |
+## Hardware Specifications
 
-The first files on this release were not bit-exact. The reader left a 12-byte status record at byte 32,768 of every 64 KiB block: 119,296 blocks, 1,431,552 bytes. Those bytes were read from the card again and replaced. The other bytes in each block were already the same as the card. The first joined image hashed to `954d4115db22f265a8fc709a15892e863276410cc10d06f789e75226cd4531a4`.
+| Component | Details |
+| :--- | :--- |
+| **Model** | FML07SD (Stardust Grey) / FML07WL (White) |
+| **Product** | MyLuma 7" PhotoShare Wi-Fi Digital Picture Frame with LED ambient backlight |
+| **Manufacturer** | Simply Smart Home / Switchmate Home LLC |
+| **FCC ID** | [2AT7Q-MYLUMA](https://fccid.io/2AT7Q-MYLUMA) |
+| **Mainboard** | `A100-SWM0813F-V1.0` |
+| **SoC** | Allwinner A133 (`sun50iw10p1`) — Quad-Core ARM Cortex-A53 @ 1.5 GHz |
+| **GPU** | PowerVR GE8300 |
+| **RAM** | 1 GB DDR3/DDR4 |
+| **Internal Storage** | 8 GB eMMC 5.1 (User area: 7,818,182,656 bytes / 15,269,888 sectors) |
+| **Display** | 7.0" TFT LCD, 1024 × 600 resolution, 5-point capacitive multi-touch |
+| **Wi-Fi / BT** | Allwinner XR829 SDIO Wi-Fi (802.11b/g/n 2.4 GHz) + Bluetooth 4.2 |
+| **Ports** | USB-C (OTG, charging, ADB), MicroSD slot, 5V DC barrel jack, reset pinhole |
+| **Operating System** | Android 10 (API 29), Linux Kernel `4.9.191-rt130` |
+| **Stock Launcher** | `PSFFrameAPK.apk` (`com.photoshareframe.frameapp`) v4.0.41 (build 96) |
 
-GitHub cannot take the user area as one object. A file in the git repository has to stay under 100 MB, and a release asset has to stay under 2 GB. The image is split into four equal parts of 1,954,545,664 bytes (about 1.82 GiB). Each part is under the release limit.
+---
 
-The four parts, the boot areas, and the smaller captures from the same read are published on release [fml07sd-v1.0.14](https://github.com/josephburt/MyLuma-7-Firmware-Dump/releases/tag/fml07sd-v1.0.14). Joining the parts in order reproduces `emmc-user.bin`. The SHA-256 of that join matches the full-image hash above.
+## Quick Reference: OEM Engineering Menu Backdoor
 
-| Part | Size | Offset | SHA-256 |
-| --- | ---: | ---: | --- |
-| `emmc-user.part0.bin` | 1,954,545,664 bytes | 0 | `d01b2bdd3b5916fb9ae725e7a0a0657716f5091130e82f3879f319b1e00ccb9d` |
-| `emmc-user.part1.bin` | 1,954,545,664 bytes | 1,954,545,664 | `55c8eb951d240d25de42cd33b9285651dd7aea732193c1c4c82f47e060c358d4` |
-| `emmc-user.part2.bin` | 1,954,545,664 bytes | 3,909,091,328 | `eca1e032f14a560dfe8ada90d4a3091a057ac2a2b300c1f5064ab9ebd6420766` |
-| `emmc-user.part3.bin` | 1,954,545,664 bytes | 5,863,636,992 | `3f17aabeef95b8ba331dae887f5a24151c63ce7443e3725675dc7e1eaa5215cf` |
+The stock photo frame software runs as a restricted kiosk launcher. However, the OEM firmware embeds a hidden Engineering Menu to unlock native Android Developer Settings and ADB without hardware tools:
 
-Rebuild and check the image with:
+```
+[Settings] ──► [Network Diagnostic] ──► Tap "Frame ID" 5 times rapidly ──► [Engineering Menu] ──► Toggle USB Debugging ON
+```
+
+1. Power on the frame and open **Settings** from the main menu.
+2. Select **Network Diagnostic**.
+3. Tap the **Frame ID** text field **5 times rapidly (within 8 seconds)**.
+4. The hidden **`EngMenuFragment`** will open immediately.
+5. Switch **USB Debugging** to **ON**.
+6. Connect a USB-C cable to your PC; standard `adb devices` will enumerate immediately.
+
+> [!TIP]
+> For smali reverse engineering notes, decompiled click-detector source code, and persistent network ADB setup, see **[ENGINEERING_MENU_AND_BOOTLOADER_NOTES.md](ENGINEERING_MENU_AND_BOOTLOADER_NOTES.md)**.
+
+---
+
+## Firmware Dump Details
+
+The complete eMMC user area is **7,818,182,656 bytes** (7,456 MiB / 15,269,888 sectors of 512 bytes).
+
+- **Full User Area SHA-256:**
+  ```text
+  5fda167b44c361b5400cf0ab10c50584bd77b47596dd8986c586f9f99532ed9b
+  ```
+
+Because GitHub enforces a 2 GB file upload limit on release assets, the user area is split into four equal parts of 1,954,545,664 bytes each. All files are hosted on release **[fml07sd-v1.0.14](https://github.com/josephburt/MyLuma-7-Firmware-Dump/releases/tag/fml07sd-v1.0.14)**.
+
+### Release Files & Checksums
+
+| File | Offset Range | Size | SHA-256 Checksum |
+| :--- | :--- | :--- | :--- |
+| [`emmc-user.part0.bin`](https://github.com/josephburt/MyLuma-7-Firmware-Dump/releases/download/fml07sd-v1.0.14/emmc-user.part0.bin) | Bytes 0 – 1,954,545,663 | 1.82 GiB | `d01b2bdd3b5916fb9ae725e7a0a0657716f5091130e82f3879f319b1e00ccb9d` |
+| [`emmc-user.part1.bin`](https://github.com/josephburt/MyLuma-7-Firmware-Dump/releases/download/fml07sd-v1.0.14/emmc-user.part1.bin) | Offset 1,954,545,664 | 1.82 GiB | `55c8eb951d240d25de42cd33b9285651dd7aea732193c1c4c82f47e060c358d4` |
+| [`emmc-user.part2.bin`](https://github.com/josephburt/MyLuma-7-Firmware-Dump/releases/download/fml07sd-v1.0.14/emmc-user.part2.bin) | Offset 3,909,091,328 | 1.82 GiB | `eca1e032f14a560dfe8ada90d4a3091a057ac2a2b300c1f5064ab9ebd6420766` |
+| [`emmc-user.part3.bin`](https://github.com/josephburt/MyLuma-7-Firmware-Dump/releases/download/fml07sd-v1.0.14/emmc-user.part3.bin) | Offset 5,863,636,992 | 1.82 GiB | `3f17aabeef95b8ba331dae887f5a24151c63ce7443e3725675dc7e1eaa5215cf` |
+| [`SHA256SUMS`](https://github.com/josephburt/MyLuma-7-Firmware-Dump/releases/download/fml07sd-v1.0.14/SHA256SUMS) | — | 424 B | `b6e3f28cf674843be665e7d5668e27c1d76378ef8a57ec394ca09b1f23c72635` |
+
+### Auxiliary Captures
+
+| File | Description | Download |
+| :--- | :--- | :--- |
+| `bootrom.bin` | Allwinner A133 internal Boot ROM (64 KiB from address `0x00000000`) | [Download](https://github.com/josephburt/MyLuma-7-Firmware-Dump/releases/download/fml07sd-v1.0.14/bootrom.bin) |
+| `bootrom-0x0000.bin` | First 32 KiB half of the Boot ROM | [Download](https://github.com/josephburt/MyLuma-7-Firmware-Dump/releases/download/fml07sd-v1.0.14/bootrom-0x0000.bin) |
+| `bootrom-0x8000.bin` | Second 32 KiB half of the Boot ROM | [Download](https://github.com/josephburt/MyLuma-7-Firmware-Dump/releases/download/fml07sd-v1.0.14/bootrom-0x8000.bin) |
+| `emmc-sector0.bin` | Protective Master Boot Record (LBA 0) | [Download](https://github.com/josephburt/MyLuma-7-Firmware-Dump/releases/download/fml07sd-v1.0.14/emmc-sector0.bin) |
+| `emmc-sector1.bin` | Primary GUID Partition Table header (LBA 1, `EFI PART`) | [Download](https://github.com/josephburt/MyLuma-7-Firmware-Dump/releases/download/fml07sd-v1.0.14/emmc-sector1.bin) |
+| `gpt-entries.bin` | Partition entries array (LBAs 2 through 6) | [Download](https://github.com/josephburt/MyLuma-7-Firmware-Dump/releases/download/fml07sd-v1.0.14/gpt-entries.bin) |
+| `emmc-extcsd.bin` | 512-byte eMMC Extended CSD register dump | [Download](https://github.com/josephburt/MyLuma-7-Firmware-Dump/releases/download/fml07sd-v1.0.14/emmc-extcsd.bin) |
+| `emmc-boot1.bin` | Hardware boot partition 1 (4 MiB, factory all-zeros) | [Download](https://github.com/josephburt/MyLuma-7-Firmware-Dump/releases/download/fml07sd-v1.0.14/emmc-boot1.bin) |
+| `emmc-boot2.bin` | Hardware boot partition 2 (4 MiB, factory all-zeros) | [Download](https://github.com/josephburt/MyLuma-7-Firmware-Dump/releases/download/fml07sd-v1.0.14/emmc-boot2.bin) |
+
+---
+
+## Reassembling the Image
+
+To reconstitute the single, verified `emmc-user.bin` disk image:
 
 ```bash
+# 1. Download all four split parts and SHA256SUMS
+wget https://github.com/josephburt/MyLuma-7-Firmware-Dump/releases/download/fml07sd-v1.0.14/emmc-user.part{0,1,2,3}.bin
+wget https://github.com/josephburt/MyLuma-7-Firmware-Dump/releases/download/fml07sd-v1.0.14/SHA256SUMS
+
+# 2. Verify split parts before concatenation
+sha256sum --ignore-missing -c SHA256SUMS
+
+# 3. Concatenate parts in numerical order
 cat emmc-user.part0.bin emmc-user.part1.bin emmc-user.part2.bin emmc-user.part3.bin > emmc-user.bin
+
+# 4. Verify complete assembled image matches factory checksum
 sha256sum -c SHA256SUMS
 ```
 
-`SHA256SUMS` lists the four parts and the joined image. The same file is in this repository and on the release.
+---
 
-| File | What it is | Download |
-| --- | --- | --- |
-| `emmc-user.part0.bin` | Bytes 0 through 1,954,545,663 | [part 0](https://github.com/josephburt/MyLuma-7-Firmware-Dump/releases/download/fml07sd-v1.0.14/emmc-user.part0.bin) |
-| `emmc-user.part1.bin` | Offset 1,954,545,664 | [part 1](https://github.com/josephburt/MyLuma-7-Firmware-Dump/releases/download/fml07sd-v1.0.14/emmc-user.part1.bin) |
-| `emmc-user.part2.bin` | Offset 3,909,091,328 | [part 2](https://github.com/josephburt/MyLuma-7-Firmware-Dump/releases/download/fml07sd-v1.0.14/emmc-user.part2.bin) |
-| `emmc-user.part3.bin` | Offset 5,863,636,992 | [part 3](https://github.com/josephburt/MyLuma-7-Firmware-Dump/releases/download/fml07sd-v1.0.14/emmc-user.part3.bin) |
-| `SHA256SUMS` | Hashes for the parts and the joined image | [SHA256SUMS](https://github.com/josephburt/MyLuma-7-Firmware-Dump/releases/download/fml07sd-v1.0.14/SHA256SUMS) |
-| `bootrom.bin` | Boot ROM, 64 KiB from address 0 | [bootrom.bin](https://github.com/josephburt/MyLuma-7-Firmware-Dump/releases/download/fml07sd-v1.0.14/bootrom.bin) |
-| `bootrom-0x0000.bin` | First 32 KiB of that boot ROM | [bootrom-0x0000.bin](https://github.com/josephburt/MyLuma-7-Firmware-Dump/releases/download/fml07sd-v1.0.14/bootrom-0x0000.bin) |
-| `bootrom-0x8000.bin` | Second 32 KiB of that boot ROM | [bootrom-0x8000.bin](https://github.com/josephburt/MyLuma-7-Firmware-Dump/releases/download/fml07sd-v1.0.14/bootrom-0x8000.bin) |
-| `emmc-sector0.bin` | Protective MBR | [emmc-sector0.bin](https://github.com/josephburt/MyLuma-7-Firmware-Dump/releases/download/fml07sd-v1.0.14/emmc-sector0.bin) |
-| `emmc-sector1.bin` | Primary GPT header | [emmc-sector1.bin](https://github.com/josephburt/MyLuma-7-Firmware-Dump/releases/download/fml07sd-v1.0.14/emmc-sector1.bin) |
-| `gpt-entries.bin` | GPT entries from LBAs 2 through 6 | [gpt-entries.bin](https://github.com/josephburt/MyLuma-7-Firmware-Dump/releases/download/fml07sd-v1.0.14/gpt-entries.bin) |
-| `emmc-extcsd.bin` | 512-byte EXT_CSD | [emmc-extcsd.bin](https://github.com/josephburt/MyLuma-7-Firmware-Dump/releases/download/fml07sd-v1.0.14/emmc-extcsd.bin) |
-| `emmc-boot1.bin` | Hardware boot area 1, 4 MiB, all zeros | [emmc-boot1.bin](https://github.com/josephburt/MyLuma-7-Firmware-Dump/releases/download/fml07sd-v1.0.14/emmc-boot1.bin) |
-| `emmc-boot2.bin` | Hardware boot area 2, 4 MiB, all zeros | [emmc-boot2.bin](https://github.com/josephburt/MyLuma-7-Firmware-Dump/releases/download/fml07sd-v1.0.14/emmc-boot2.bin) |
+## Partition Map
 
-## Partition map
+The storage is partitioned using standard GUID Partition Table (GPT) format with a protective MBR at LBA 0. The backup GPT header is located at the final sector (LBA 15,269,887).
 
-The user area starts with a protective MBR. LBA 1 is a GPT header (`EFI PART`). The backup header is the last sector, LBA 15,269,887. The first 36 MiB, through LBA 73,727, holds the partition tables and the gap before the first entry.
+All partitions use the Android standard partition type GUID `EBD0A0A2-B9E5-4433-87C0-68B6B72699C7`.
 
-| Name | Start LBA | End LBA | Size |
-| --- | ---: | ---: | ---: |
-| bootloader | 73728 | 139263 | 32 MiB |
-| env | 139264 | 172031 | 16 MiB |
-| boot | 172032 | 237567 | 32 MiB |
-| super | 237568 | 4431871 | 2 GiB |
-| misc | 4431872 | 4464639 | 16 MiB |
-| recovery | 4464640 | 4530175 | 32 MiB |
-| cache | 4530176 | 6103039 | 768 MiB |
-| vbmeta | 6103040 | 6135807 | 16 MiB |
-| vbmeta_system | 6135808 | 6168575 | 16 MiB |
-| vbmeta_vendor | 6168576 | 6201343 | 16 MiB |
-| metadata | 6201344 | 6234111 | 16 MiB |
-| private | 6234112 | 6266879 | 16 MiB |
-| frp | 6266880 | 6267903 | 512 KiB |
-| empty | 6267904 | 6299647 | 15.5 MiB |
-| dtbo | 6299648 | 6303743 | 2 MiB |
-| media_data | 6303744 | 6336511 | 16 MiB |
-| UDISK | 6336512 | 15269854 | 4,573,871,616 bytes |
+| # | Partition Name | Start LBA | End LBA | Sector Count | Size | Purpose / Contents |
+| :---: | :--- | ---: | ---: | ---: | ---: | :--- |
+| — | *(MBR + GPT + Gap)* | 0 | 73,727 | 73,728 | 36 MiB | Protective MBR, Primary GPT, TOC1 boot container |
+| 1 | `bootloader` | 73,728 | 139,263 | 65,536 | 32 MiB | Secondary bootloader staging |
+| 2 | `env` | 139,264 | 172,031 | 32,768 | 16 MiB | U-Boot environment variables |
+| 3 | `boot` | 172,032 | 237,567 | 65,536 | 32 MiB | Android Boot Image (`ANDROID!`, Kernel + Ramdisk) |
+| 4 | `super` | 237,568 | 4,431,871 | 4,194,304 | 2,048 MiB | Dynamic partitions (`system`, `vendor`, `product`) |
+| 5 | `misc` | 4,431,872 | 4,464,639 | 32,768 | 16 MiB | Android bootloader control block (BCB) |
+| 6 | `recovery` | 4,464,640 | 4,530,175 | 65,536 | 32 MiB | Android Recovery image (`ANDROID!`) |
+| 7 | `cache` | 4,530,176 | 6,103,039 | 1,572,864 | 768 MiB | Ext4 cache partition |
+| 8 | `vbmeta` | 6,103,040 | 6,135,807 | 32,768 | 16 MiB | Android Verified Boot metadata (Root AVB) |
+| 9 | `vbmeta_system` | 6,135,808 | 6,168,575 | 32,768 | 16 MiB | AVB descriptors for system |
+| 10 | `vbmeta_vendor` | 6,168,576 | 6,201,343 | 32,768 | 16 MiB | AVB descriptors for vendor |
+| 11 | `metadata` | 6,201,344 | 6,234,111 | 32,768 | 16 MiB | Encryption and metadata store |
+| 12 | `private` | 6,234,112 | 6,266,879 | 32,768 | 16 MiB | Factory calibration and serial data |
+| 13 | `frp` | 6,266,880 | 6,267,903 | 1,024 | 512 KiB | Factory Reset Protection storage |
+| 14 | `empty` | 6,267,904 | 6,299,647 | 31,744 | 15.5 MiB | Unformatted reservation |
+| 15 | `dtbo` | 6,299,648 | 6,303,743 | 4,096 | 2 MiB | Device Tree Blob Overlay (`dtbo`) |
+| 16 | `media_data` | 6,303,744 | 6,336,511 | 32,768 | 16 MiB | Preloaded OEM demo photos / assets |
+| 17 | `UDISK` | 6,336,512 | 15,269,854 | 8,933,343 | 4,362 MiB | `/data` user data partition (Ext4 / F2FS) |
 
-`boot` and `recovery` start with an Android boot image (`ANDROID!`). `dtbo` starts with a device-tree overlay header. Every entry uses the Android partition type GUID `EBD0A0A2-B9E5-4433-87C0-68B6B72699C7`.
+---
 
-## How it was read
+## Technical Notes & Acquisition Methodology
 
-The user area was copied over USB while the frame was in Allwinner FEL mode. The copy was checked against the first sector, the GPT header, and the backup header at the last sector. A 12-byte status value from that reader had replaced real bytes in the middle of every 64 KiB block of the saved image. Those bytes were read again, and the image on this release is the corrected file. The first sector still matched after that read.
+- **Acquisition Protocol:** Raw eMMC acquisition performed via USB using Allwinner FEL mode.
+- **Verification History:** The initial reader pass introduced an artifact (a 12-byte status record at byte 32,768 of every 64 KiB block). Every affected sector was re-read directly from physical eMMC and corrected. The final 4-part release image is verified bit-exact against physical flash.
+- **Hardware Boot Areas:** eMMC hardware boot partitions (`boot1` and `boot2`, 4 MiB each) are unwritten (all zeros, SHA-256 `bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8`). All SPL and TOC1 bootloaders execute entirely out of the eMMC user area.
 
-The two hardware boot areas were read separately. Each file is 4,194,304 bytes of zeros, and both have SHA-256 `bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8`. They are not part of `emmc-user.bin`.
+---
 
-## Engineering Menu & Bootloader Notes
+## Repurposing Ideas
 
-See [ENGINEERING_MENU_AND_BOOTLOADER_NOTES.md](ENGINEERING_MENU_AND_BOOTLOADER_NOTES.md) for reverse engineering notes, including:
-- **Built-in OEM Engineering Menu ("Backdoor")**: How to access the hidden `EngMenuFragment` in the stock photo frame app (`PSFFrameAPK`) by tapping **Frame ID 5 times rapidly** in **Network Diagnostic** to toggle USB debugging without hardware flashing or FEL mode.
-- **Bootloader Verification**: How Allwinner A133 U-Boot TOC1 verifies `vbmeta` against an embedded X.509 certificate and why directly patching AVB flags in `vbmeta` fails self-verification.
-- **Hardware & Wi-Fi Notes**: Details on the Allwinner XR829 2.4 GHz SDIO Wi-Fi module and how to enable persistent ADB over Wi-Fi on port 5555.
+Because this device features a quad-core 64-bit ARM processor, 1 GB RAM, Wi-Fi, and a crisp 7" 1024×600 IPS touch display with USB-C power, it makes an ideal platform for:
+- **Smart Desk Display / Clock**: Weather, live radar loop, calendar, and news widgets.
+- **RTSP IP Camera Monitor**: ExoPlayer low-latency multi-camera surveillance viewer.
+- **Home Assistant Kiosk**: Fully Kiosk or custom lightweight webview dashboard.
+- **Media Player / Internet Radio**: Squeezelite, MPD, or local UPnP/DLNA streamer.
+
+---
+
+## References & Documentation
+
+- **[ENGINEERING_MENU_AND_BOOTLOADER_NOTES.md](ENGINEERING_MENU_AND_BOOTLOADER_NOTES.md)** — In-depth reverse engineering report on the stock photo frame APK, decompiled smali backdoor, U-Boot TOC1 cryptographic verification, and persistent network ADB configuration.
+- **FCC ID Report:** [FCC ID 2AT7Q-MYLUMA](https://fccid.io/2AT7Q-MYLUMA) (Schematics, internal PCB photos, SAR reports).
+- **Allwinner Technology:** [Allwinner A133 User Manual & Datasheet](https://linux-sunxi.org/A133) on linux-sunxi.

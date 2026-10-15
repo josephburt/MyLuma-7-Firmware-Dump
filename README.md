@@ -99,3 +99,10 @@ The user area starts with a protective MBR. LBA 1 is a GPT header (`EFI PART`). 
 The user area was copied over USB while the frame was in Allwinner FEL mode. The copy was checked against the first sector, the GPT header, and the backup header at the last sector. A 12-byte status value from that reader had replaced real bytes in the middle of every 64 KiB block of the saved image. Those bytes were read again, and the image on this release is the corrected file. The first sector still matched after that read.
 
 The two hardware boot areas were read separately. Each file is 4,194,304 bytes of zeros, and both have SHA-256 `bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8`. They are not part of `emmc-user.bin`.
+
+## Engineering Menu & Bootloader Notes
+
+See [ENGINEERING_MENU_AND_BOOTLOADER_NOTES.md](ENGINEERING_MENU_AND_BOOTLOADER_NOTES.md) for reverse engineering notes, including:
+- **Built-in OEM Engineering Menu ("Backdoor")**: How to access the hidden `EngMenuFragment` in the stock photo frame app (`PSFFrameAPK`) by tapping **Frame ID 5 times rapidly** in **Network Diagnostic** to toggle USB debugging without hardware flashing or FEL mode.
+- **Bootloader Verification**: How Allwinner A133 U-Boot TOC1 verifies `vbmeta` against an embedded X.509 certificate and why directly patching AVB flags in `vbmeta` fails self-verification.
+- **Hardware & Wi-Fi Notes**: Details on the Allwinner XR829 2.4 GHz SDIO Wi-Fi module and how to enable persistent ADB over Wi-Fi on port 5555.
